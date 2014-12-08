@@ -26,27 +26,28 @@ import java.util.Collections;
  */
 public class ClassPathUtil {
 
-    private static String OS = System.getProperty("os.name").toLowerCase();
+	private static final String OS = System.getProperty("os.name")
+			.toLowerCase();
 
-    public static boolean isWindows() {
-        return OS.contains("win");
-    }
+	public static boolean isWindows() {
+		return OS.contains("win");
+	}
 
+	public static String getClassPathSeparator() {
+		return isWindows() ? ";" : ":";
+	}
 
-    public static String getClassPathSeparator() {
-        return isWindows() ? ";" : ":";
-    }
-
-    /**
-     * Returns current jvm class path entries
-     * This method read java.class.path property
-     * @return class path entries.
-     */
-    public static Collection<String> getClassPathEntries() {
-        String classPath = System.getProperty("java.class.path", "");
-        Collection<String> result = new ArrayList<String>();
-        Collections.addAll(result, classPath.split(getClassPathSeparator()));
-        return result;
-    }
+	/**
+	 * Returns current jvm class path entries This method read java.class.path
+	 * property
+	 * 
+	 * @return class path entries.
+	 */
+	public static Collection<String> getClassPathEntries() {
+		String classPath = System.getProperty("java.class.path", "");
+		Collection<String> result = new ArrayList<String>();
+		Collections.addAll(result, classPath.split(getClassPathSeparator()));
+		return result;
+	}
 
 }
