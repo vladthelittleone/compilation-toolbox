@@ -15,20 +15,24 @@
  */
 package org.abstractmeta.toolbox.compilation.compiler;
 
-
-import org.abstractmeta.toolbox.compilation.compiler.registry.JavaFileObjectRegistry;
-
 import java.io.File;
 import java.util.Collection;
 import java.util.List;
 
+import javax.tools.DiagnosticCollector;
+import javax.tools.JavaFileObject;
+
+import org.abstractmeta.toolbox.compilation.compiler.registry.JavaFileObjectRegistry;
+import org.abstractmeta.toolbox.compilation.compiler.util.ClassPathUtil;
+
 /**
- * Java source code compiler. It compiles given java class sources in memory and loads them into memory.
- * It utilises Java Compiler API.
- * <p><b>Usage:</b>
+ * Java source code compiler. It compiles given java class sources in memory and
+ * loads them into memory. It utilises Java Compiler API.
+ * <p>
+ * <b>Usage:</b>
  * <ul>
- *  <li>Simple source compilation</li>
- *  <code><pre>
+ * <li>Simple source compilation</li>
+ * <code><pre>
  *  JavaSourceCompiler javaSourceCompiler = new JavaSourceCompilerImpl();
  *  JavaSourceCompiler.CompilationUnit compilationUnit = javaSourceCompiler.createCompilationUnit();
  *  String javaSourceCode =  "package com.test.foo;\n" +
@@ -43,9 +47,9 @@ import java.util.List;
  *  Class fooClass = classLoader.loadClass("com.test.foo.Foo");
  *  </pre></code>
  *
- *  <li>Java sources compilation with dependencies</li>
+ * <li>Java sources compilation with dependencies</li>
  *
- *  <code><pre>
+ * <code><pre>
  *  JavaSourceCompiler javaSourceCompiler = new JavaSourceCompilerImpl();
  *  JavaSourceCompiler.CompilationUnit compilationUnit = javaSourceCompiler.createCompilationUnit();
  *
@@ -83,77 +87,122 @@ import java.util.List;
  *  Class bar = classLoader.loadClass("com.test.Bar");
  *
  *
- *  </ul>
- *  </p>
+ * </ul>
+ * </p>
+ *
  * @author Adrian Witas
  */
 
 public interface JavaSourceCompiler {
 
-    /**
-     * Creates a compilation unit
-     * @return compilation unit
-     */
-    CompilationUnit createCompilationUnit();
+	/**
+	 * Creates a compilation unit
+	 *
+	 * @return compilation unit
+	 */
+	CompilationUnit createCompilationUnit();
 
-    /**
-     * Create a compilation unit for the supplied output class directory.
-     * @param outputClassDirectory output class directory
-     * @return compilation unit
-     */
-    CompilationUnit createCompilationUnit(File outputClassDirectory);
+	/**
+	 * Create a compilation unit for the supplied output class directory.
+	 *
+	 * @param outputClassDirectory
+	 *            output class directory
+	 * @return compilation unit
+	 */
+	CompilationUnit createCompilationUnit(File outputClassDirectory);
 
-    /**
-     * Compiles given compilation unit with the supplier compiler options and returns class loader for the compiled sources.
-     * @param compilationUnit compilation unit
-     * @param compilerOptions compiler options
-     * @return class loader for the compiled classes
-     */
-    ClassLoader compile(CompilationUnit compilationUnit, String... compilerOptions);
+	/**
+	 * Compiles given compilation unit with the supplier compiler options and
+	 * returns class loader for the compiled sources.
+	 *
+	 * @param compilationUnit
+	 *            compilation unit
+	 * @param compilerOptions
+	 *            compiler options
+	 * @return class loader for the compiled classes
+	 */
+	ClassLoader compile(CompilationUnit compilationUnit,
+			String... compilerOptions);
 
-    /**
-        * Compiles given compilation unit with the supplier compiler options and returns class loader for the compiled sources.
-        * @param parentClassLoader parent class loader for the new class loader created for this compilation
-        * @param compilationUnit compilation unit
-        * @param compilerOptions compiler options
-        * @return class loader for the compiled classes
-    */
-    ClassLoader compile(ClassLoader parentClassLoader, CompilationUnit compilationUnit, String... compilerOptions);
+	/**
+	 * Compiles given compilation unit with the supplier compiler options and
+	 * returns class loader for the compiled sources.
+	 *
+	 * @param parentClassLoader
+	 *            parent class loader for the new class loader created for this
+	 *            compilation
+	 * @param compilationUnit
+	 *            compilation unit
+	 * @param compilerOptions
+	 *            compiler options
+	 * @return class loader for the compiled classes
+	 */
+	ClassLoader compile(ClassLoader parentClassLoader,
+			CompilationUnit compilationUnit, String... compilerOptions);
 
-    /**
-     * By default source code and compiled classes are stored in memory, this however could be a limitation
-     * for libraries that scans dynamically packages, and this method persists compiled classes to be accessible
-     * by package scanners on the file system.
-     * @param compilationUnit compilation unit.
-     */
-    void persistCompiledClasses(CompilationUnit compilationUnit);
+	/**
+	 * Compiles given compilation unit with the supplier compiler options and
+	 * returns class loader for the compiled sources. Allows the manual handling
+	 * of compilation errors/warnings using a {@link DiagnosticCollector}.
+	 *
+	 * @param parentClassLoader
+	 *            parent class loader for the new class loader created for this
+	 *            compilation
+	 * @param compilationUnit
+	 *            compilation unit
+	 * @param compilerOptions
+	 *            compiler options
+	 * @param diagnosticsCollector
+	 *            The diagnostics collector which collects the results for this
+	 *            compilation.
+	 * @return class loader for the compiled classes
+	 */
+	ClassLoader compile(ClassLoader parentClassLoader,
+			CompilationUnit compilationUnit,
+			DiagnosticCollector<JavaFileObject> diagnosticsCollector,
+			String... compilerOptions);
 
-    /**
-     * Represents an individual compilation unit.
-     * It isRegistered multiple java sources and jar dependencies.
-     */
-    interface CompilationUnit {
+	/**
+	 * By default source code and compiled classes are stored in memory, this
+	 * however could be a limitation for libraries that scans dynamically
+	 * packages, and this method persists compiled classes to be accessible by
+	 * package scanners on the file system.
+	 *
+	 * @param compilationUnit
+	 *            compilation unit.
+	 */
+	void persistCompiledClasses(CompilationUnit compilationUnit);
 
-        /**
-         * Adds class path entry to java compiler
-         * <p><b>Note</b> that if at least one entry is added,  the current jvm class path entries are not included.
-         * You can retrieve current jvm class path entries from {@link org.abstractmeta.toolbox.compilation.compiler.util.ClassPathUtil.getClassPathEntries}
-         *
-         * </p>
-         * @param classPathEntry class path entires
-         */
-        void addClassPathEntry(String classPathEntry);
+	/**
+	 * Represents an individual compilation unit. It isRegistered multiple java
+	 * sources and jar dependencies.
+	 */
+	interface CompilationUnit {
 
-        void addClassPathEntries(Collection<String> classPathEntries);
+		/**
+		 * Adds class path entry to java compiler
+		 * <p>
+		 * <b>Note</b> that if at least one entry is added, the current jvm
+		 * class path entries are not included. You can retrieve current jvm
+		 * class path entries from {@link ClassPathUtil#getClassPathEntries()}
+		 *
+		 * </p>
+		 *
+		 * @param classPathEntry
+		 *            class path entries
+		 */
+		void addClassPathEntry(String classPathEntry);
 
-        void addJavaSource(String className, String source);
+		void addClassPathEntries(Collection<String> classPathEntries);
 
-        JavaFileObjectRegistry getRegistry();
+		void addJavaSource(String className, String source);
 
-        List<String> getClassPathsEntries();
+		JavaFileObjectRegistry getRegistry();
 
-        File getOutputClassDirectory();
+		List<String> getClassPathsEntries();
 
-    }
+		File getOutputClassDirectory();
+
+	}
 
 }
