@@ -15,33 +15,20 @@
  */
 package org.abstractmeta.toolbox.compilation.compiler.impl;
 
-import java.io.File;
-import java.io.IOException;
-import java.net.URI;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import javax.tools.Diagnostic;
-import javax.tools.DiagnosticCollector;
-import javax.tools.JavaCompiler;
-import javax.tools.JavaFileManager;
-import javax.tools.JavaFileObject;
-import javax.tools.StandardLocation;
-import javax.tools.ToolProvider;
-
+import com.google.common.io.Files;
 import org.abstractmeta.toolbox.compilation.compiler.JavaSourceCompiler;
 import org.abstractmeta.toolbox.compilation.compiler.registry.JavaFileObjectRegistry;
 import org.abstractmeta.toolbox.compilation.compiler.registry.impl.JavaFileObjectRegistryImpl;
 import org.abstractmeta.toolbox.compilation.compiler.util.ClassPathUtil;
 import org.abstractmeta.toolbox.compilation.compiler.util.URIUtil;
 
-import com.google.common.io.Files;
+import javax.tools.*;
+import java.io.File;
+import java.io.IOException;
+import java.net.URI;
+import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Provides implementation of JavaSourceCompiler interface. This implementation
@@ -79,7 +66,7 @@ public class JavaSourceCompilerImpl implements JavaSourceCompiler {
 	private final Logger logger = Logger.getLogger(JavaSourceCompilerImpl.class
 			.getName());
 
-	private static final List<String> CLASS_PATH_OPTIONS = new ArrayList<String>(
+	private static final List<String> CLASS_PATH_OPTIONS = new ArrayList<>(
 			Arrays.asList("cp", "classpath"));
 	private static final String CLASS_PATH_DELIMITER = ClassPathUtil
 			.getClassPathSeparator();
@@ -95,7 +82,7 @@ public class JavaSourceCompilerImpl implements JavaSourceCompiler {
 	public ClassLoader compile(ClassLoader parentClassLoader,
 			CompilationUnit compilationUnit, String... options) {
 		DiagnosticCollector<JavaFileObject> diagnosticsCollector = new DiagnosticCollector<>();
-		ClassLoader resultingClassloader = compile(parentClassLoader,
+		ClassLoader resultingClassLoader = compile(parentClassLoader,
 				compilationUnit, diagnosticsCollector, options);
 		StringBuilder diagnosticBuilder = new StringBuilder();
 		boolean compilationError = false;
@@ -110,7 +97,7 @@ public class JavaSourceCompilerImpl implements JavaSourceCompiler {
 				logger.log(Level.WARNING, diagnosticBuilder.toString());
 			}
 		}
-		return resultingClassloader;
+		return resultingClassLoader;
 	}
 
 	@Override
@@ -173,8 +160,8 @@ public class JavaSourceCompilerImpl implements JavaSourceCompiler {
 
 	protected Collection<String> buildOptions(CompilationUnit compilationUnit,
 			SimpleClassLoader classLoader, String... options) {
-		List<String> result = new ArrayList<String>();
-		Map<String, String> optionsMap = new HashMap<String, String>();
+		List<String> result = new ArrayList<>();
+		Map<String, String> optionsMap = new HashMap<>();
 		for (int i = 0; i < options.length; i += 2) {
 			optionsMap.put(options[i], options[i + 1]);
 		}
@@ -270,7 +257,7 @@ public class JavaSourceCompilerImpl implements JavaSourceCompiler {
 
 	public static class CompilationUnitImpl implements CompilationUnit {
 
-		private final List<String> classPathEntries = new ArrayList<String>();
+		private final List<String> classPathEntries = new ArrayList<>();
 		private final JavaFileObjectRegistry registry = new JavaFileObjectRegistryImpl();
 		private final File outputClassDirectory;
 
