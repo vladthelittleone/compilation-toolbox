@@ -29,7 +29,6 @@ import java.net.URI;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 /**
  * Provides implementation of JavaSourceCompiler interface. This implementation
  * uses {@link javax.tools.JavaCompiler}.
@@ -75,7 +74,7 @@ public class JavaSourceCompilerImpl implements JavaSourceCompiler
     public ClassLoader compile(CompilationUnit compilationUnit,
                                String... options)
     {
-        return compile(this.getClass().getClassLoader(), compilationUnit,
+        return compile(getClass().getClassLoader(), compilationUnit,
                 options);
     }
 
@@ -105,6 +104,15 @@ public class JavaSourceCompilerImpl implements JavaSourceCompiler
             }
         }
         return resultingClassLoader;
+    }
+
+    @Override
+    public ClassLoader compile(CompilationUnit compilationUnit,
+                               DiagnosticCollector<JavaFileObject> diagnosticsCollector,
+                               String... options)
+    {
+        return compile(getClass().getClassLoader(), compilationUnit,
+                diagnosticsCollector, options);
     }
 
     @Override
@@ -336,5 +344,4 @@ public class JavaSourceCompilerImpl implements JavaSourceCompiler
             return outputClassDirectory;
         }
     }
-
 }

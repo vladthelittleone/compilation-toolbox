@@ -45,7 +45,7 @@ public class ClassPathUtil {
 	 */
 	public static Collection<String> getClassPathEntries() {
 		String classPath = System.getProperty("java.class.path", "");
-		Collection<String> result = new ArrayList<String>();
+		Collection<String> result = new ArrayList<>();
 		Collections.addAll(result, classPath.split(getClassPathSeparator()));
 		return result;
 	}

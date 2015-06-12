@@ -91,7 +91,6 @@ import java.util.List;
  *
  * @author Adrian Witas
  */
-
 public interface JavaSourceCompiler
 {
     /**
@@ -132,6 +131,21 @@ public interface JavaSourceCompiler
      */
     ClassLoader compile(ClassLoader parentClassLoader,
                         CompilationUnit compilationUnit, String... compilerOptions);
+
+    /**
+     * Compiles given compilation unit with the supplier compiler options and
+     * returns class loader for the compiled sources. Allows the manual handling
+     * of compilation errors/warnings using a {@link DiagnosticCollector}.
+     *
+     * @param compilationUnit      compilation unit
+     * @param compilerOptions      compiler options
+     * @param diagnosticsCollector The diagnostics collector which collects the results for this
+     *                             compilation.
+     * @return class loader for the compiled classes
+     */
+    ClassLoader compile(CompilationUnit compilationUnit,
+                        DiagnosticCollector<JavaFileObject> diagnosticsCollector,
+                        String... compilerOptions);
 
     /**
      * Compiles given compilation unit with the supplier compiler options and
@@ -191,5 +205,4 @@ public interface JavaSourceCompiler
         File getOutputClassDirectory();
 
     }
-
 }

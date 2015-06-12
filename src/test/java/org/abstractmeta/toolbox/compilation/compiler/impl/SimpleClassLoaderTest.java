@@ -15,16 +15,14 @@
  */
 package org.abstractmeta.toolbox.compilation.compiler.impl;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.Collections;
-
-import javax.inject.Inject;
-
 import org.abstractmeta.toolbox.compilation.compiler.JavaSourceCompiler;
 import org.abstractmeta.toolbox.compilation.compiler.registry.JavaFileObjectRegistry;
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import javax.inject.Inject;
+import java.io.File;
+import java.util.Collections;
 
 @Test
 public class SimpleClassLoaderTest {
@@ -63,7 +61,7 @@ public class SimpleClassLoaderTest {
 		classLoader.findClass(SimpleClassLoaderTest.class.getName() + "foo");
 	}
 
-	public void testFindResource() throws Exception, IOException {
+	public void testFindResource() throws Exception {
 		SimpleClassLoader classLoader = new SimpleClassLoader(getClass()
 				.getClassLoader(), getRegistry(), new File(
 				"target/simple-compiler"));

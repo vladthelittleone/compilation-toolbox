@@ -54,7 +54,6 @@ import java.util.jar.JarFile;
  *
  * @author Adrian Witas
  */
-
 public class SimpleClassLoader extends ClassLoader
 {
     private final List<JarFile> jarFiles = new ArrayList<>();
@@ -179,7 +178,6 @@ public class SimpleClassLoader extends ClassLoader
     }
 
     protected Class<?> findClassInJarFile(String qualifiedClassName)
-            throws ClassNotFoundException
     {
         URI classUri = URIUtil.buildUri(StandardLocation.CLASS_OUTPUT,
                 qualifiedClassName);
@@ -211,7 +209,7 @@ public class SimpleClassLoader extends ClassLoader
     protected Enumeration<URL> findResources(String resource)
             throws IOException
     {
-        List<URL> result = new ArrayList<URL>(Collections.list(super
+        List<URL> result = new ArrayList<>(Collections.list(super
                 .findResources(resource)));
         findResourcesInJarFiles(result, resource);
         findResourcesInJavaFileObjectRegistry(result, resource);
@@ -247,5 +245,4 @@ public class SimpleClassLoader extends ClassLoader
             }
         }
     }
-
 }
