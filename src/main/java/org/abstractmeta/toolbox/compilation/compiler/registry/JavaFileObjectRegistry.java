@@ -22,11 +22,12 @@ import java.util.Collection;
 /**
  * Represents Java File Object registry.
  * This registry manages java sources and compiled byte codes.
+ *
  * @author Adrian Witas
  */
 
-public interface JavaFileObjectRegistry {
-
+public interface JavaFileObjectRegistry
+{
     void register(JavaFileObject fileObject);
 
     boolean isRegistered(URI objectUri);

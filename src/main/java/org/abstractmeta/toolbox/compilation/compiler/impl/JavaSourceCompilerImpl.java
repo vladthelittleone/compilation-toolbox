@@ -61,241 +61,280 @@ import java.util.logging.Logger;
  * @author Adrian Witas
  */
 
-public class JavaSourceCompilerImpl implements JavaSourceCompiler {
+public class JavaSourceCompilerImpl implements JavaSourceCompiler
+{
+    private final Logger logger = Logger.getLogger(JavaSourceCompilerImpl.class
+            .getName());
 
-	private final Logger logger = Logger.getLogger(JavaSourceCompilerImpl.class
-			.getName());
+    private static final List<String> CLASS_PATH_OPTIONS = new ArrayList<>(
+            Arrays.asList("cp", "classpath"));
+    private static final String CLASS_PATH_DELIMITER = ClassPathUtil
+            .getClassPathSeparator();
 
-	private static final List<String> CLASS_PATH_OPTIONS = new ArrayList<>(
-			Arrays.asList("cp", "classpath"));
-	private static final String CLASS_PATH_DELIMITER = ClassPathUtil
-			.getClassPathSeparator();
+    @Override
+    public ClassLoader compile(CompilationUnit compilationUnit,
+                               String... options)
+    {
+        return compile(this.getClass().getClassLoader(), compilationUnit,
+                options);
+    }
 
-	@Override
-	public ClassLoader compile(CompilationUnit compilationUnit,
-			String... options) {
-		return compile(this.getClass().getClassLoader(), compilationUnit,
-				options);
-	}
+    @Override
+    public ClassLoader compile(ClassLoader parentClassLoader,
+                               CompilationUnit compilationUnit, String... options)
+    {
+        DiagnosticCollector<JavaFileObject> diagnosticsCollector = new DiagnosticCollector<>();
+        ClassLoader resultingClassLoader = compile(parentClassLoader,
+                compilationUnit, diagnosticsCollector, options);
+        StringBuilder diagnosticBuilder = new StringBuilder();
+        boolean compilationError = false;
+        for (Diagnostic<?> diagnostic : diagnosticsCollector.getDiagnostics())
+        {
+            compilationError |= buildDiagnosticMessage(diagnostic,
+                    diagnosticBuilder);
+        }
+        if (diagnosticBuilder.length() > 0)
+        {
+            if (compilationError)
+            {
+                throw new IllegalStateException(diagnosticBuilder.toString());
+            }
+            else
+            {
+                logger.log(Level.WARNING, diagnosticBuilder.toString());
+            }
+        }
+        return resultingClassLoader;
+    }
 
-	@Override
-	public ClassLoader compile(ClassLoader parentClassLoader,
-			CompilationUnit compilationUnit, String... options) {
-		DiagnosticCollector<JavaFileObject> diagnosticsCollector = new DiagnosticCollector<>();
-		ClassLoader resultingClassLoader = compile(parentClassLoader,
-				compilationUnit, diagnosticsCollector, options);
-		StringBuilder diagnosticBuilder = new StringBuilder();
-		boolean compilationError = false;
-		for (Diagnostic<?> diagnostic : diagnosticsCollector.getDiagnostics()) {
-			compilationError |= buildDiagnosticMessage(diagnostic,
-					diagnosticBuilder);
-		}
-		if (diagnosticBuilder.length() > 0) {
-			if (compilationError) {
-				throw new IllegalStateException(diagnosticBuilder.toString());
-			} else {
-				logger.log(Level.WARNING, diagnosticBuilder.toString());
-			}
-		}
-		return resultingClassLoader;
-	}
+    @Override
+    public ClassLoader compile(ClassLoader parentClassLoader,
+                               CompilationUnit compilationUnit,
+                               DiagnosticCollector<JavaFileObject> diagnosticsCollector,
+                               String... options)
+    {
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        return compile(compiler, parentClassLoader, compilationUnit,
+                diagnosticsCollector, options);
+    }
 
-	@Override
-	public ClassLoader compile(ClassLoader parentClassLoader,
-			CompilationUnit compilationUnit,
-			DiagnosticCollector<JavaFileObject> diagnosticsCollector,
-			String... options) {
-		JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-		return compile(compiler, parentClassLoader, compilationUnit,
-				diagnosticsCollector, options);
-	}
+    protected ClassLoader compile(JavaCompiler compiler,
+                                  ClassLoader parentClassLoader, CompilationUnit compilationUnit,
+                                  DiagnosticCollector<JavaFileObject> diagnosticsCollector,
+                                  String... options)
+    {
+        if (compiler == null)
+        {
+            throw new IllegalStateException(
+                    "Failed to find the system Java compiler. Check that your class path includes tools.jar");
+        }
+        JavaFileObjectRegistry registry = compilationUnit.getRegistry();
+        SimpleClassLoader result = new SimpleClassLoader(parentClassLoader,
+                registry, compilationUnit.getOutputClassDirectory());
+        JavaFileManager standardFileManager = compiler.getStandardFileManager(
+                diagnosticsCollector, null, null);
+        JavaFileManager javaFileManager = new SimpleJavaFileManager(
+                standardFileManager, result, registry);
+        Iterable<JavaFileObject> sources = registry
+                .get(JavaFileObject.Kind.SOURCE);
+        Collection<String> compilationOptions = buildOptions(compilationUnit,
+                result, options);
+        JavaCompiler.CompilationTask task = compiler.getTask(null,
+                javaFileManager, diagnosticsCollector, compilationOptions,
+                null, sources);
+        task.call();
+        result.addClassPathEntries(compilationUnit.getClassPathsEntries());
+        return result;
+    }
 
-	protected ClassLoader compile(JavaCompiler compiler,
-			ClassLoader parentClassLoader, CompilationUnit compilationUnit,
-			DiagnosticCollector<JavaFileObject> diagnosticsCollector,
-			String... options) {
-		if (compiler == null) {
-			throw new IllegalStateException(
-					"Failed to find the system Java compiler. Check that your class path includes tools.jar");
-		}
-		JavaFileObjectRegistry registry = compilationUnit.getRegistry();
-		SimpleClassLoader result = new SimpleClassLoader(parentClassLoader,
-				registry, compilationUnit.getOutputClassDirectory());
-		JavaFileManager standardFileManager = compiler.getStandardFileManager(
-				diagnosticsCollector, null, null);
-		JavaFileManager javaFileManager = new SimpleJavaFileManager(
-				standardFileManager, result, registry);
-		Iterable<JavaFileObject> sources = registry
-				.get(JavaFileObject.Kind.SOURCE);
-		Collection<String> compilationOptions = buildOptions(compilationUnit,
-				result, options);
-		JavaCompiler.CompilationTask task = compiler.getTask(null,
-				javaFileManager, diagnosticsCollector, compilationOptions,
-				null, sources);
-		task.call();
-		result.addClassPathEntries(compilationUnit.getClassPathsEntries());
-		return result;
-	}
+    protected boolean buildDiagnosticMessage(Diagnostic<?> diagnostic,
+                                             StringBuilder diagnosticBuilder)
+    {
+        Object source = diagnostic.getSource();
+        String sourceErrorDetails = "";
+        if (source != null)
+        {
+            JavaSourceFileObject sourceFile = JavaSourceFileObject.class
+                    .cast(source);
+            CharSequence sourceCode = sourceFile.getCharContent(true);
+            int startPosition = Math.max(
+                    (int) diagnostic.getStartPosition() - 10, 0);
+            int endPosition = Math.min(sourceCode.length(),
+                    (int) diagnostic.getEndPosition() + 10);
+            sourceErrorDetails = sourceCode.subSequence(startPosition,
+                    endPosition).toString();
+        }
+        diagnosticBuilder.append(diagnostic.getMessage(null));
+        diagnosticBuilder.append("\n");
+        diagnosticBuilder.append(sourceErrorDetails);
+        return diagnostic.getKind().equals(Diagnostic.Kind.ERROR);
+    }
 
-	protected boolean buildDiagnosticMessage(Diagnostic<?> diagnostic,
-			StringBuilder diagnosticBuilder) {
-		Object source = diagnostic.getSource();
-		String sourceErrorDetails = "";
-		if (source != null) {
-			JavaSourceFileObject sourceFile = JavaSourceFileObject.class
-					.cast(source);
-			CharSequence sourceCode = sourceFile.getCharContent(true);
-			int startPosition = Math.max(
-					(int) diagnostic.getStartPosition() - 10, 0);
-			int endPosition = Math.min(sourceCode.length(),
-					(int) diagnostic.getEndPosition() + 10);
-			sourceErrorDetails = sourceCode.subSequence(startPosition,
-					endPosition).toString();
-		}
-		diagnosticBuilder.append(diagnostic.getMessage(null));
-		diagnosticBuilder.append("\n");
-		diagnosticBuilder.append(sourceErrorDetails);
-		return diagnostic.getKind().equals(Diagnostic.Kind.ERROR);
-	}
+    protected Collection<String> buildOptions(CompilationUnit compilationUnit,
+                                              SimpleClassLoader classLoader, String... options)
+    {
+        List<String> result = new ArrayList<>();
+        Map<String, String> optionsMap = new HashMap<>();
+        for (int i = 0; i < options.length; i += 2)
+        {
+            optionsMap.put(options[i], options[i + 1]);
+        }
+        for (String classPathKey : CLASS_PATH_OPTIONS)
+        {
+            if (optionsMap.containsKey(classPathKey))
+            {
+                addClassPath(compilationUnit, optionsMap.get(classPathKey));
+            }
+        }
+        for (String key : optionsMap.keySet())
+        {
+            if (CLASS_PATH_OPTIONS.contains(key))
+            {
+                continue;
+            }
+            result.addAll(Arrays.asList(key, optionsMap.get(key)));
+        }
+        addClassPath(result, compilationUnit);
 
-	protected Collection<String> buildOptions(CompilationUnit compilationUnit,
-			SimpleClassLoader classLoader, String... options) {
-		List<String> result = new ArrayList<>();
-		Map<String, String> optionsMap = new HashMap<>();
-		for (int i = 0; i < options.length; i += 2) {
-			optionsMap.put(options[i], options[i + 1]);
-		}
-		for (String classPathKey : CLASS_PATH_OPTIONS) {
-			if (optionsMap.containsKey(classPathKey)) {
-				addClassPath(compilationUnit, optionsMap.get(classPathKey));
-			}
-		}
-		for (String key : optionsMap.keySet()) {
-			if (CLASS_PATH_OPTIONS.contains(key)) {
-				continue;
-			}
-			result.addAll(Arrays.asList(key, optionsMap.get(key)));
-		}
-		addClassPath(result, compilationUnit);
+        return result;
+    }
 
-		return result;
-	}
+    /**
+     * Adds given class path entries of compilation unit to the supplied option
+     * result list. This method simply add -cp
+     * 'cass_path_entry1:...:clas_path_entry_x' options
+     *
+     * @param result          result list
+     * @param compilationUnit compilation unit
+     */
+    private void addClassPath(List<String> result,
+                              CompilationUnit compilationUnit)
+    {
+        StringBuilder classPathBuilder = new StringBuilder();
+        for (String entry : compilationUnit.getClassPathsEntries())
+        {
+            if (classPathBuilder.length() > 0)
+            {
+                classPathBuilder.append(CLASS_PATH_DELIMITER);
+            }
+            classPathBuilder.append(entry);
+        }
+        if (classPathBuilder.length() > 0)
+        {
+            result.addAll(Arrays.asList("-cp", classPathBuilder.toString()));
+        }
+    }
 
-	/**
-	 * Adds given class path entries of compilation unit to the supplied option
-	 * result list. This method simply add -cp
-	 * 'cass_path_entry1:...:clas_path_entry_x' options
-	 *
-	 * @param result
-	 *            result list
-	 * @param compilationUnit
-	 *            compilation unit
-	 */
-	private void addClassPath(List<String> result,
-			CompilationUnit compilationUnit) {
-		StringBuilder classPathBuilder = new StringBuilder();
-		for (String entry : compilationUnit.getClassPathsEntries()) {
-			if (classPathBuilder.length() > 0) {
-				classPathBuilder.append(CLASS_PATH_DELIMITER);
-			}
-			classPathBuilder.append(entry);
-		}
-		if (classPathBuilder.length() > 0) {
-			result.addAll(Arrays.asList("-cp", classPathBuilder.toString()));
-		}
-	}
+    protected void addClassPath(CompilationUnit result, String classPath)
+    {
+        String[] classPathEntries = classPath.split(CLASS_PATH_DELIMITER);
 
-	protected void addClassPath(CompilationUnit result, String classPath) {
-		String[] classPathEntries = classPath.split(CLASS_PATH_DELIMITER);
+        for (String classPathEntry : classPathEntries)
+        {
+            result.addClassPathEntry(classPathEntry);
+        }
+    }
 
-		for (String classPathEntry : classPathEntries) {
-			result.addClassPathEntry(classPathEntry);
-		}
-	}
+    @Override
+    public CompilationUnit createCompilationUnit()
+    {
+        File outputDirectory = new File(System.getProperty("java.io.tmpdir"),
+                "compiled-code_" + System.currentTimeMillis());
+        return createCompilationUnit(outputDirectory);
+    }
 
-	@Override
-	public CompilationUnit createCompilationUnit() {
-		File outputDirectory = new File(System.getProperty("java.io.tmpdir"),
-				"compiled-code_" + System.currentTimeMillis());
-		return createCompilationUnit(outputDirectory);
-	}
+    @Override
+    public CompilationUnit createCompilationUnit(File outputClassDirectory)
+    {
+        return new CompilationUnitImpl(outputClassDirectory);
+    }
 
-	@Override
-	public CompilationUnit createCompilationUnit(File outputClassDirectory) {
-		return new CompilationUnitImpl(outputClassDirectory);
-	}
+    @Override
+    public void persistCompiledClasses(CompilationUnit compilationUnit)
+    {
+        JavaFileObjectRegistry registry = compilationUnit.getRegistry();
+        File classOutputDirectory = compilationUnit.getOutputClassDirectory();
+        if (!classOutputDirectory.exists())
+        {
+            if (!classOutputDirectory.mkdirs())
+            {
+                throw new IllegalStateException("Failed to create directory "
+                        + classOutputDirectory.getAbsolutePath());
+            }
+        }
+        for (JavaFileObject javaFileObject : registry
+                .get(JavaFileObject.Kind.CLASS))
+        {
+            String internalName = javaFileObject.getName().substring(1);
+            File compiledClassFile = new File(classOutputDirectory,
+                    internalName);
+            if (!compiledClassFile.getParentFile().exists()
+                    && !compiledClassFile.getParentFile().mkdirs())
+            {
+                throw new IllegalStateException("Failed to create directories "
+                        + compiledClassFile.getParent());
+            }
+            try
+            {
+                Files.write(JavaCodeFileObject.class.cast(javaFileObject)
+                        .getByteCode(), compiledClassFile);
+            }
+            catch (IOException e)
+            {
+                throw new IllegalStateException("Failed to write to file "
+                        + compiledClassFile, e);
+            }
+        }
+    }
 
-	@Override
-	public void persistCompiledClasses(CompilationUnit compilationUnit) {
-		JavaFileObjectRegistry registry = compilationUnit.getRegistry();
-		File classOutputDirectory = compilationUnit.getOutputClassDirectory();
-		if (!classOutputDirectory.exists()) {
-			if (!classOutputDirectory.mkdirs()) {
-				throw new IllegalStateException("Failed to create directory "
-						+ classOutputDirectory.getAbsolutePath());
-			}
-		}
-		for (JavaFileObject javaFileObject : registry
-				.get(JavaFileObject.Kind.CLASS)) {
-			String internalName = javaFileObject.getName().substring(1);
-			File compiledClassFile = new File(classOutputDirectory,
-					internalName);
-			if (!compiledClassFile.getParentFile().exists()
-					&& !compiledClassFile.getParentFile().mkdirs()) {
-				throw new IllegalStateException("Failed to create directories "
-						+ compiledClassFile.getParent());
-			}
-			try {
-				Files.write(JavaCodeFileObject.class.cast(javaFileObject)
-						.getByteCode(), compiledClassFile);
-			} catch (IOException e) {
-				throw new IllegalStateException("Failed to write to file "
-						+ compiledClassFile, e);
-			}
-		}
-	}
+    public static class CompilationUnitImpl implements CompilationUnit
+    {
+        private final List<String> classPathEntries = new ArrayList<>();
+        private final JavaFileObjectRegistry registry = new JavaFileObjectRegistryImpl();
+        private final File outputClassDirectory;
 
-	public static class CompilationUnitImpl implements CompilationUnit {
+        public CompilationUnitImpl(File outputClassDirectory)
+        {
+            this.outputClassDirectory = outputClassDirectory;
+        }
 
-		private final List<String> classPathEntries = new ArrayList<>();
-		private final JavaFileObjectRegistry registry = new JavaFileObjectRegistryImpl();
-		private final File outputClassDirectory;
+        @Override
+        public void addClassPathEntry(String classPathEntry)
+        {
+            classPathEntries.add(classPathEntry);
+        }
 
-		public CompilationUnitImpl(File outputClassDirectory) {
-			this.outputClassDirectory = outputClassDirectory;
-		}
+        @Override
+        public void addClassPathEntries(Collection<String> classPathEntries)
+        {
+            this.classPathEntries.addAll(classPathEntries);
+        }
 
-		@Override
-		public void addClassPathEntry(String classPathEntry) {
-			classPathEntries.add(classPathEntry);
-		}
+        @Override
+        public void addJavaSource(String className, String source)
+        {
+            URI sourceUri = URIUtil.buildUri(StandardLocation.SOURCE_OUTPUT,
+                    className);
+            registry.register(new JavaSourceFileObject(sourceUri, source));
+        }
 
-		@Override
-		public void addClassPathEntries(Collection<String> classPathEntries) {
-			this.classPathEntries.addAll(classPathEntries);
-		}
+        @Override
+        public JavaFileObjectRegistry getRegistry()
+        {
+            return registry;
+        }
 
-		@Override
-		public void addJavaSource(String className, String source) {
-			URI sourceUri = URIUtil.buildUri(StandardLocation.SOURCE_OUTPUT,
-					className);
-			registry.register(new JavaSourceFileObject(sourceUri, source));
-		}
+        @Override
+        public List<String> getClassPathsEntries()
+        {
+            return classPathEntries;
+        }
 
-		@Override
-		public JavaFileObjectRegistry getRegistry() {
-			return registry;
-		}
-
-		@Override
-		public List<String> getClassPathsEntries() {
-			return classPathEntries;
-		}
-
-		@Override
-		public File getOutputClassDirectory() {
-			return outputClassDirectory;
-		}
-	}
+        @Override
+        public File getOutputClassDirectory()
+        {
+            return outputClassDirectory;
+        }
+    }
 
 }

@@ -33,52 +33,57 @@ import java.net.URI;
  * @author Adrian Witas
  */
 
-public class SimpleJavaFileManager extends ForwardingJavaFileManager<JavaFileManager> {
-
+public class SimpleJavaFileManager extends ForwardingJavaFileManager<JavaFileManager>
+{
     // the delegating class loader (passed to the constructor)
     private final ClassLoader classLoader;
     private final JavaFileObjectRegistry javaFileObjectRegistry;
 
-    protected SimpleJavaFileManager(JavaFileManager javaFileManager, ClassLoader classLoader, JavaFileObjectRegistry javaFileObjectRegistry) {
+    protected SimpleJavaFileManager(JavaFileManager javaFileManager, ClassLoader classLoader, JavaFileObjectRegistry javaFileObjectRegistry)
+    {
         super(javaFileManager);
         this.classLoader = classLoader;
         this.javaFileObjectRegistry = javaFileObjectRegistry;
     }
 
-
     /**
      * @return the class loader which this file manager delegates to
      */
-    public ClassLoader getClassLoader() {
+    public ClassLoader getClassLoader()
+    {
         return classLoader;
     }
 
-
     @Override
-    public FileObject getFileForInput(Location location, String packageName, String relativeName) throws IOException {
+    public FileObject getFileForInput(Location location, String packageName, String relativeName) throws IOException
+    {
         URI uri = URIUtil.buildUri(location, packageName, relativeName);
-        if (javaFileObjectRegistry.isRegistered(uri)) {
+        if (javaFileObjectRegistry.isRegistered(uri))
+        {
             return javaFileObjectRegistry.get(uri);
         }
         return super.getFileForInput(location, packageName, relativeName);
     }
 
-    public JavaFileObject getJavaFileForOutput(Location location, String qualifiedName, JavaFileObject.Kind kind, FileObject outputFile) throws IOException {
-        if (kind == JavaFileObject.Kind.CLASS) {
+    public JavaFileObject getJavaFileForOutput(Location location, String qualifiedName, JavaFileObject.Kind kind, FileObject outputFile) throws IOException
+    {
+        if (kind == JavaFileObject.Kind.CLASS)
+        {
             JavaFileObject result = new JavaCodeFileObject(URIUtil.buildUri(location, qualifiedName));
             javaFileObjectRegistry.register(result);
             return result;
-        } else {
+        }
+        else
+        {
             throw new IllegalStateException(String.format("Unsupported kind: %s for %s", kind, qualifiedName));
         }
     }
 
     @Override
-    public ClassLoader getClassLoader(JavaFileManager.Location location) {
+    public ClassLoader getClassLoader(JavaFileManager.Location location)
+    {
         return classLoader;
     }
-
-
 }
 
 
